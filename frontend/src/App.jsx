@@ -10,6 +10,8 @@ const App = () => {
   const [isThinking, setIsThinking] = useState(false);
   const [id, setId] = useState("");
   const chatEndRef = useRef(null);
+  const [showWelcome, setShowWelcome] = useState(true);
+
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -54,12 +56,13 @@ const App = () => {
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
 
+    setShowWelcome(false)
     const userMsg = inputText;
     setInputText("");
 
-    // user message add
     setMessages((prev) => [...prev, { sender: "user", text: userMsg }]);
     setIsThinking(true);
+
 
     try {
       const res = await axios.post(
@@ -70,7 +73,6 @@ const App = () => {
 
       const aiText = res.data.response || "No response from server.";
 
-      // AI message with typing effect fields
       setMessages((prev) => [
         ...prev,
         { sender: "ai", text: "", fullText: aiText },
@@ -93,36 +95,93 @@ const App = () => {
 
   return (
     <div className="bg-neutral-900 w-full h-screen text-white sm:p-5 p-3 overflow-x-hidden">
+
+      {/* Logo */}
       <div className="sm:w-27 sm:h-18 w-18 h-12 fixed">
         <img className="w-full h-full" src="chatgpt.png" alt="" />
       </div>
 
       <div className="container mx-auto max-w-3xl sm:h-[95%] h-[98%] sm:p-4 p-2">
-        <h1 className="sm:text-2xl text-lg font-bold text-center mb-6">
-          AI Chat Messages
+
+        {/* Title */}
+        <h1 className="sm:text-2xl text-lg font-bold text-center mb-3">
+          Welcome to ChatGPT
         </h1>
 
+
+        {/* Chat Box */}
         <div className="overflow-y-auto h-[calc(100%-100px)] mb-4 scrollbar-hide">
-          {messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`sm:text-sm text-[13px] p-3 rounded-xl mb-3 max-w-fit ${
-                msg.sender === "user"
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center ">
+              <h1 className="text-neutral-500 sm:text-3xl text-xl font-bold">
+                Welcome to ChatGPT
+              </h1>
+            </div>
+          ) :
+            (messages.map((msg, index) => (
+              <div
+                key={index}
+                className={`sm:text-sm text-[13px] p-3 rounded-xl mb-3 max-w-fit ${msg.sender === "user"
                   ? "bg-neutral-700 ml-auto"
                   : "bg-neutral-900 mr-auto"
-              }`}
-            >
-              {msg.sender === "ai" ? (
-                <div className="prose prose-invert max-w-fit">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {msg.text}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <h1>{msg.text}</h1>
-              )}
-            </div>
-          ))}
+                  }`}
+              >
+                {msg.sender === "ai" ? (
+                  <div
+                    style={{
+                      overflowX: "auto",
+                    }}
+                  >
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        table: ({ node, ...props }) => (
+                          <table
+                            style={{
+                              width: "100%",
+                              borderCollapse: "collapse",
+                              marginTop: "10px",
+                              marginBottom: "10px",
+                              background: "#111",
+                              border: "1px solid #444",
+                              borderRadius: "8px",
+                              overflow: "hidden",
+                            }}
+                            {...props}
+                          />
+                        ),
+                        th: ({ node, ...props }) => (
+                          <th
+                            style={{
+                              border: "1px solid #333",
+                              padding: "10px",
+                              background: "#1a1a1a",
+                              fontWeight: "600",
+                              textAlign: "left",
+                            }}
+                            {...props}
+                          />
+                        ),
+                        td: ({ node, ...props }) => (
+                          <td
+                            style={{
+                              border: "1px solid #333",
+                              padding: "10px",
+                              textAlign: "left",
+                            }}
+                            {...props}
+                          />
+                        ),
+                      }}
+                    >
+                      {msg.text}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <h1>{msg.text}</h1>
+                )}
+              </div>
+            )))}
 
           {isThinking && (
             <div className="text-sm mr-auto p-3 rounded-xl max-w-fit">
@@ -134,7 +193,7 @@ const App = () => {
         </div>
 
         {/* Input Section */}
-        <div className="fixed max-w-3xl mx-auto inset-x-0 smpb-7 pb-0 bottom-0  bg-neutral-900">
+        <div className="fixed max-w-3xl mx-auto inset-x-0 pb-6 bottom-0 bg-neutral-900">
           <div className="bg-neutral-800 rounded-lg flex sm:py-4 py-2 px-3 gap-3 w-full">
             <input
               value={inputText}
@@ -146,6 +205,7 @@ const App = () => {
             />
 
             <button
+
               onClick={handleSendMessage}
               className="sm:px-4 px-3 py-1 bg-white rounded-2xl hover:bg-neutral-300 cursor-pointer"
             >
@@ -153,6 +213,7 @@ const App = () => {
             </button>
           </div>
         </div>
+
       </div>
     </div>
   );

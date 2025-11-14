@@ -94,7 +94,8 @@ const App = () => {
   };
 
   return (
-    <div className="bg-neutral-900 w-full h-screen text-white sm:p-5 p-3 overflow-x-hidden">
+    <div className="w-full h-[100vh]">
+    <div className="bg-neutral-900 w-full h-[100%] text-white sm:p-5 p-3 overflow-x-hidden">
 
       {/* Logo */}
       <div className="sm:w-27 sm:h-18 w-18 h-12 fixed">
@@ -193,8 +194,8 @@ const App = () => {
         </div>
 
         {/* Input Section */}
-        <div className="fixed max-w-3xl mx-auto inset-x-0 pb-6 bottom-0 bg-neutral-900">
-          <div className="bg-neutral-800 rounded-lg flex sm:py-4 py-2 px-3 gap-3 w-full">
+        <div className="fixed max-w-3xl mx-auto inset-x-0 sm:pb-6 bottom-0 bg-neutral-900">
+          <div className="bg-neutral-800 sm:rounded-lg flex sm:py-4 py-2 px-3 gap-3 w-full">
             <input
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -215,6 +216,7 @@ const App = () => {
         </div>
 
       </div>
+    </div>
     </div>
   );
 };

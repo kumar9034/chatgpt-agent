@@ -66,7 +66,7 @@ const App = () => {
 
     try {
       const res = await axios.post(
-        "http://localhost:3001/chat",
+        `${import.meta.env.VITE_BACK_URL}/chat`,
         { inputText: userMsg, id },
         { headers: { "Content-Type": "application/json" } }
       );

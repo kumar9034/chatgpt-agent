@@ -2,115 +2,99 @@ import OpenAI from "openai";
 import "dotenv/config";
 import { tavily } from "@tavily/core";
 import NodeCache from "node-cache";
-import { json } from "express";
 
-// ✅ Tavily + OpenAI clients
-const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
+// ✅ GLOBAL CACHE (Fix for ReferenceError)
+export const myCache = new NodeCache({ stdTTL: 60 * 60 * 24 });
+
 const client = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
+  apiKey: process.env.GROQ_API_KEY, 
   baseURL: "https://api.groq.com/openai/v1",
 });
 
-// ✅ Cache to store per-thread conversation
-const myCache = new NodeCache({ stdTTL: 60 * 60 * 24 }); // 24h TTL
+const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
-// 🧠 MAIN FUNCTION
+// -------------------------------------------------------
+// 🧠 MAIN AI FUNCTION
+// -------------------------------------------------------
 export async function generateAi(userinput, threadId) {
-  // Create base prompt (system message)
   const basePrompt = [
     {
       role: "system",
-      content: `You are **Jarvis**, a friendly and smart AI assistant.
-Current datetime: ${new Date().toLocaleString()}
-
-🧩 You can use the "webSearch" tool when you need live data.
-Keep your answers clean, Markdown formatted, and concise.`,
+      content: `You are Rahul Founder's Personal AI Assistant.
+Help Rahul with coding, AI, projects, learning, and general tasks.
+Use conversation history to understand context and maintain continuity.
+Always respond according to the user's language and communication style.
+If the user speaks Hinglish, reply naturally in Hinglish.
+Keep simple questions short and explain complex topics step-by-step.
+Never invent information or pretend to remember unavailable context.
+Be friendly, practical, accurate, and conversational.`,
     },
   ];
 
-  // 🆔 Ensure messages array exists (for each thread)
-  const messages = myCache.get(threadId) ?? [...basePrompt];
-
-  // Add user input to messages
+  // 🧠 LOAD OLD CONVERSATION OR START NEW
+  let messages = myCache.get(threadId) ?? [...basePrompt];
   messages.push({ role: "user", content: userinput });
 
-  const maxRetries = 10;
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      // 🔹 Step 1: Send to LLM
-      const response = await client.responses.create({
-        model: "openai/gpt-oss-20b",
-        input: messages,
-        temperature: 0.3,
-        max_output_tokens: 600,
-        tools: [
-          {
-            type: "function",
-            name: "webSearch",
-            description: "Search the web for real-time information",
-            parameters: {
-              type: "object",
-              properties: {
-                query: { type: "string", description: "Search query" },
-              },
-              required: ["query"],
-            },
+  // 🔥 CALL GROQ
+  const response = await client.responses.create({
+    model: "openai/gpt-oss-20b",
+    input: messages,
+    max_output_tokens: 500,
+    temperature: 0.4,
+    tools: [
+      {
+        type: "function",
+        name: "webSearch",
+        description: "Do real-time web search using Tavily",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
           },
-        ],
-        tool_choice: "auto",
-      });
+          required: ["query"],
+        },
+      },
+    ],
+    tool_choice: "auto",
+  });
 
-      // 🔹 Step 2: Parse LLM output
-      const textOutput = response.output?.[1]?.content?.[0]?.text;
-      // console.log(response.output);
-      const toolCall = response.output.find((item) => item.type === "function_call");
-      // console.log(toolCall);
+  // Get RAW Blocks
+  const blocks = response.output;
 
-      // If LLM requests a web search
-      if (toolCall && toolCall.name === "webSearch") {
-        const args = JSON.parse(toolCall.arguments);
-        const webData = await webSearch(args.query);
+  // Check for Tool Call
+  const toolCall = blocks.find((b) => b.type === "function_call");
 
-        messages.push({
-          role: "assistant",
-          content: `🌐 Web info: ${webData}`,
-        });
+  if (toolCall) {
+    const args = JSON.parse(toolCall.arguments);
+    const data = await webSearch(args.query);
 
-        // Continue the loop to reprocess with new data
-        continue;
-      }
+    messages.push({
+      role: "assistant",
+      content: `🌐 Web Search Result:\n${data}`,
+    });
 
-      // If we got a text reply
-      if (textOutput) {
-        messages.push({ role: "assistant", content: textOutput });
-        myCache.set(threadId, messages);
-        // console.log(json.toString(myCache.data)) 
-        // console.log(textOutput)// Save context per ID
-        return textOutput;
-      }
+    myCache.set(threadId, messages);
 
-      break;
-    } catch (error) {
-      if (error.status === 429) {
-        console.warn("⚠️ Rate limit hit. Retrying...");
-        await new Promise((r) => setTimeout(r, 3000));
-      } else {
-        console.error("💥 Error:", error.message);
-        if (i === maxRetries - 1) throw error;
-      }
-    }
+    // Run again using recursion
+    return await generateAi("Continue with this data.", threadId);
   }
 
-  return "❌ Failed after multiple attempts.";
+  // Normal Text Response
+  const finalText = response.output_text;
+  messages.push({ role: "assistant", content: finalText });
+  myCache.set(threadId, messages);
+
+  return finalText;
 }
 
-// 🌍 Web search helper
+// -------------------------------------------------------
+// 🌍 TAVILY SEARCH WRAPPER
+// -------------------------------------------------------
 async function webSearch(query) {
   try {
     const res = await tvly.search(query);
     return res.results.map((r) => r.content).join("\n\n");
-  } catch (error) {
-    console.error("Web search error:", error);
+  } catch {
     return "No live data found.";
   }
 }

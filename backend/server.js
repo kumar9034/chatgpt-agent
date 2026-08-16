@@ -13,6 +13,14 @@ app.use(cors({
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 app.use(cors())
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message: "Server is running",
+  });
+});
+
 app.get("/", (req, res) => {
     res.send("hello world")
 })
